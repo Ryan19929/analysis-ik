@@ -121,14 +121,18 @@ class AnalyzeContext {
     		readCount = reader.read(segmentBuff);
 			this.lastUselessCharNum = 0;
     	}else{
-    		int offset = this.available - this.cursor;
-    		if(offset > 0){
-    			//最近一次读取的>最近一次处理的，将未处理的字串拷贝到segmentBuff头部
-    			System.arraycopy(this.segmentBuff , this.cursor , this.segmentBuff , 0 , offset);
-    			readCount = offset;
-    		}
-    		//继续读取reader ，以onceReadIn - onceAnalyzed为起始位置，继续填充segmentBuff剩余的部分
-    		readCount += reader.read(this.segmentBuff , offset , BUFF_SIZE - offset);
+			// cursor + 1 防止最后一个字符拷贝到segmentBuff头部，导致重复消费的问题。
+			int offset = this.available - (this.cursor + 1);
+			if(offset > 0){
+				//最近一次读取的>最近一次处理的，将未处理的字串拷贝到segmentBuff头部
+				System.arraycopy(this.segmentBuff , this.cursor , this.segmentBuff , 0 , offset);
+				readCount = offset;
+			}
+			//继续读取reader ，以onceReadIn - onceAnalyzed为起始位置，继续填充segmentBuff剩余的部分
+			int leftCount = reader.read(this.segmentBuff, offset, BUFF_SIZE - offset);
+			if (leftCount > 0) {
+				readCount += leftCount;
+			}
     	}            	
     	//记录最后一次从Reader中读入的可用字符长度
     	this.available = readCount;
