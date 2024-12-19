@@ -6,7 +6,13 @@ import org.apache.lucene.analysis.tokenattributes.OffsetAttribute;
 import org.junit.Test;
 import org.wltea.analyzer.cfg.Configuration;
 import org.wltea.analyzer.TestUtils;
+import org.wltea.analyzer.dic.Dictionary;
 
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.InputStreamReader;
+import java.io.Reader;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -84,6 +90,66 @@ public class IKAnalyzerTests {
         assert values[3].equals("凤");
     }
 
+    @Test
+    public void testIKMatchHugeFromFile() {
+
+        Configuration cfg = TestUtils.createFakeConfigurationSub(true);
+        IKAnalyzer analyzer = new IKAnalyzer(cfg);
+        String fileName = "/Users/black/code/banalysis-ik/core/src/main/java/org/wltea/analyzer/core/chinese-perf.txt";
+        cfg.getConfDir();
+        File file = new File(fileName);
+        if (!file.exists()) {
+            System.out.printf("文件不存在: %s%n", fileName);
+            return;
+        }
+
+        // 获取文件大小
+        long bytes = file.length();
+        System.out.printf("读取测试文件，包含 %d 字节。%n", bytes);
+
+        try {
+            // 创建Reader读取文件
+            Reader reader = new InputStreamReader(
+                    new FileInputStream(file), StandardCharsets.UTF_8);
+
+            // 初始化IK分词器
+
+
+            // 记录开始时间
+            long start = System.currentTimeMillis();
+
+            // 执行分词
+            TokenStream ts = analyzer.tokenStream("contents", reader);
+            ts.reset();
+            CharTermAttribute term = ts.getAttribute(CharTermAttribute.class);
+
+            int count = 0;
+            while (ts.incrementToken()) {
+                count++;
+            }
+
+            // 记录结束时间
+            long end = System.currentTimeMillis();
+            long time = end - start;
+
+            // 输出统计信息
+            System.out.printf("分词耗时: %d 毫秒%n", time);
+            System.out.printf("分词数量: %d%n", count);
+            System.out.printf("平均每个分词耗时: %.2f 微秒%n", (time * 1000.0) / count);
+            System.out.printf("处理速度: %.2f MB/s%n",
+                    (bytes / 1024.0 / 1024.0) / (time / 1000.0));
+
+            // 清理资源
+            ts.close();
+            analyzer.close();
+            reader.close();
+
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+
     /**
      * 用ik_max_word分词器分词
      */
@@ -115,6 +181,17 @@ public class IKAnalyzerTests {
         assert values.size() == 2;
         assert values.contains("中华人民共和国");
         assert values.contains("国歌");
+    }
+
+    /**
+     * 测试中文分词流程
+     */
+    @Test
+    public void test_cjk_tokenize()
+    {
+        Configuration cfg = TestUtils.createFakeConfigurationSub(true);
+        List<String> values = Arrays.asList(tokenize(cfg, "Hello, 我是一个测试管道工人"));
+        System.out.println(values);
     }
 
     static String[] tokenize(Configuration configuration, String s)
